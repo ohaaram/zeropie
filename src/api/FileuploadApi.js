@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React from 'react'
 import Dropzone from 'react-dropzone'
 import axios from 'axios'
 
@@ -7,12 +7,9 @@ import axios from 'axios'
 
 function FileUpload(){
 
+  
   const dropHandler = (files) => {
 
-    const file = files[0];
-    
-
-    //프로필이 잘 들어왔는지 찍어보기
     files.forEach((file, index) => {
       console.log(`File ${index + 1}:`);
       console.log("Name:", file.name);
@@ -25,7 +22,8 @@ function FileUpload(){
     let formData = new FormData();
     formData.append("file", files[0]);
     console.log(formData[0])
-      
+       // 서버에 파일 전송
+    // 서버에 파일 전송
     axios.post('http://localhost:8080/onepie/register', formData, {header: {
       'Content-Type':'multipart/form-data'}
     })
@@ -45,14 +43,9 @@ function FileUpload(){
         <div style={{display:'flex', justifyContent:'space-between'}}>
           <Dropzone onDrop={dropHandler}>
             {({getRootProps, getInputProps}) => (
-                <div style={{width:140,height:140,border:'1px solid lightgray', display:'flex',alignSelf:'center'}} 
+                <div style={{width:130,height:120,border:'1px solid lightgray', display:'flex',alignSelf:'center',justifyContent:'conter'}} 
                   {...getRootProps()}>
                   <input {...getInputProps()} />
-                  {preview ? (
-              <img src={preview} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <p style={{color:'lightgray', fontSize:'60px', margin:'20% 32%'}}>+</p>
-            )}
                 </div>
             )}
           </Dropzone>

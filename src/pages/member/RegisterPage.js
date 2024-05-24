@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import MemberLayout from '../../layout/MemberLayout';
 import axios from 'axios';
 import { useDaumPostcodePopup } from 'react-daum-postcode';
@@ -6,23 +6,29 @@ import { useNavigate } from 'react-router-dom';
 import Dropzone from 'react-dropzone';
 
 
+
 const RegisterPage = () => {
 
 
     const [preview, setPreview] = useState(null);
+    const [file, setFile] = useState(null); // 파일을 상태로 관리onst [file, setFile] = useState(null);
+    const [email, setEmail] = useState('');
+
 
     const profileHandler = (files) => {
-        const file = files[0];
-    
-        //선택한 프로필 사진보기
-        const filePreview = URL.createObjectURL(file);
-        setPreview(filePreview);
-        console.log("filePreview 찍어보기 : "+filePreview);
+        const selectedFile = files[0];
+        setFile(selectedFile);
 
-        // stfImg에 URL 저장
-        setStf({ ...stf, stfImg: filePreview });
-        console.log("stfImg 찍어보기 : ", stf.stfImg);
-    }
+        // 선택한 프로필 사진 보기 - setFile 이후의 file 값을 사용해야 함
+        const filePreview = URL.createObjectURL(selectedFile);
+        setPreview(filePreview);
+
+        // stf 상태 업데이트
+        setStf((prevStf) => ({
+            ...prevStf,
+            thumbFile: selectedFile
+        }));
+    };
 
     const navigate = useNavigate();
 
@@ -35,16 +41,66 @@ const RegisterPage = () => {
         stfAddr2: "",
         stfEmail: "",
         stfEnt: "",
-        stfImg: "",
-        dptNo: "",
-        rnkNo: "",
+        strDptNo: "",
+        strRnkNo: "",
+        thumbFile: null,
     });
+
+
+    const [positions, setPositions] = useState([]);
+    const [deps, setDeps] = useState([]);
+    const [showVerification, setShowVerification] = useState(false); // 인증 코드 입력 필드 표시 여부
+    const [verificationCode, setVerificationCode] = useState(""); // 인증 코드 입력 값
+    const [verificationMessage, setVerificationMessage] = useState(""); // 인증 결과 메시지
+
+
+    // 컴포넌트가 렌더링될 때(마운트)
+    useEffect(() => {
+        console.log("컴포넌트가 렌더링될 때(마운트)");
+
+        /*
+        const data = ['사원','대리','과장','차장','부장']
+        setPositions(data);    
+        */
+
+        axios.get('http://localhost:8080/onepie/findPosition')
+            .then((data) => {
+                setPositions(data.data.result)
+                console.log(data.data.result)
+            }).catch((err) => {
+                console.log(err);
+            });
+
+        axios.get('http://localhost:8080/onepie/findRnk')
+            .then((data) => {
+                setDeps(data.data.result)
+                console.log(data.data.result)
+            }).catch((err) => {
+                console.log(err);
+            });
+
+
+
+    }, []);
+
+
+
+
+    useEffect(() => {
+        console.log("stf thumbFile 찍어보기 : ", stf.thumbFile);
+    }, [stf.thumbFile, file]); // file 상태도 감지하여 변경되면 useEffect가 호출되도록 설정
+
+    //검색버튼을 클릭하면 주소창 팝업
     const openDaumPostcode = useDaumPostcodePopup();
 
-    const [passwordMessage, setPasswordMessage] = useState(""); 
-    const [emailMessage, setEmailMessage] = useState(""); 
-    const [phoneMessage, setPhoneMessage] = useState(""); 
 
+    //유효성 결과 보여주기
+    const [passwordMessage, setPasswordMessage] = useState("");
+    const [emailMessage, setEmailMessage] = useState("");
+    const [phoneMessage, setPhoneMessage] = useState("");
+
+
+    //우편주소
     const handlePostcode = () => {
         openDaumPostcode({
             onComplete: (data) => {
@@ -53,24 +109,84 @@ const RegisterPage = () => {
         });
     };
 
-    const submitHandler = (e) => {
+
+
+    const handleSendEmail = (e) => {
+
         e.preventDefault();
 
+
+        if (!stf.stfEmail) {
+            alert('이메일을 입력하세요.');
+            return;
+        }
+
         axios
-            .post("http://localhost:8080/onepie/register", stf)
+            .get(`http://localhost:8080/onepie/sendEmail?email=${stf.stfEmail}`)
             .then((response) => {
-                console.log(response.data);
-                navigate("/login");
+                const result = response.data.result;
+                console.log("이게 결과값?" + result);
+                setEmailMessage(result); // 서버에서 받은 결과를 상태로 관리
+
+                if (result === '성공') { // 인증 코드 입력 필드 표시
+                    setShowVerification(true);
+                }
+            })
+            .catch((err) => {
+                console.log(err);
+            });
+    };
+    const handleVerifyCode = (e) => {
+        e.preventDefault();
+        axios.get(`http://localhost:8080/onepie/verifyCode?email=${stf.stfEmail}&code=${verificationCode}`)
+            .then((response) => {
+                const result = response.data.result;
+                setVerificationMessage(result); // 서버에서 받은 인증 결과를 상태로 관리
             })
             .catch((err) => {
                 console.log(err);
             });
     };
 
+
+
+
+    //회원가입버튼을 누르면 post전송
+    const submitHandler = (e) => {
+        e.preventDefault();
+
+        const formData = new FormData();
+        // 기존 stf 필드들 추가
+        Object.keys(stf).forEach((key) => {
+            formData.append(key, stf[key]);
+        });
+
+        // 파일 필드 추가
+        formData.append("file", file);
+
+        console.log("formData에 있는것들 찍어보기 : ", formData);
+
+        axios
+            .post("http://localhost:8080/onepie/upload", formData, {
+                headers: {
+                    "Content-Type": "multipart/form-data",
+                },
+            })
+            .then((response) => {
+                console.log(response.data);
+                //navigate("/login");
+            })
+            .catch((err) => {
+                console.log(err);
+            });
+
+    };
+
     const changeHandler = (e) => {
         setStf({ ...stf, [e.target.name]: e.target.value });
     };
 
+    //패스워드 읽어와서 비밀번호 유효성검사
     const onChangePassword = (e) => {
         const currentPassword = e.target.value;
         setStf({ ...stf, stfPass: currentPassword });
@@ -85,6 +201,8 @@ const RegisterPage = () => {
         }
     };
 
+
+    //이메일 유효성 검사
     const onChangeEmail = (e) => {
         const currentEmail = e.target.value;
         setStf({ ...stf, stfEmail: currentEmail });
@@ -98,6 +216,8 @@ const RegisterPage = () => {
         }
     };
 
+
+    //핸드폰 유효성
     const onChangePhone = (e) => {
         const currentPhone = e.target.value;
         setStf({ ...stf, stfPh: currentPhone });
@@ -118,18 +238,18 @@ const RegisterPage = () => {
                     <div className="registerRow">
                         <div>사진</div>
                         <div className="imageBox">
-                        <div style={{display:'flex', justifyContent:'space-between'}}>
-                        <Dropzone onDrop={profileHandler}>
-                        {({getRootProps, getInputProps}) => (
-                        <div style={{width:140,height:140,border:'1px solid lightgray', display:'flex',alignSelf:'center'}} 
-                        {...getRootProps()}>
-                        <input {...getInputProps()} />
-                        {preview ? (<img src={preview} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />) :
-                         (<p style={{color:'lightgray', fontSize:'60px', margin:'20% 32%'}}>+</p>)}
-                        </div>
-                        )}
-                        </Dropzone>
-                    </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                <Dropzone onDrop={profileHandler}>
+                                    {({ getRootProps, getInputProps }) => (
+                                        <div style={{ width: 100, height: 100, border: '1px solid lightgray', display: 'flex', alignSelf: 'center' }}
+                                            {...getRootProps()}>
+                                            <input {...getInputProps()} />
+                                            {preview ? (<img src={preview} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />) :
+                                                (<p style={{ color: 'lightgray', fontSize: '40px', margin: '20% 32%' }}>+</p>)}
+                                        </div>
+                                    )}
+                                </Dropzone>
+                            </div>
                         </div>
                     </div>
 
@@ -196,28 +316,26 @@ const RegisterPage = () => {
                             <div>부서</div>
                             <div>
                                 <select
-                                    name="dptNo"
+                                    name="strDptNo"
                                     id="department"
-                                    value={stf.dptNo}
+                                    value={stf.strDptNo}
                                     onChange={changeHandler}
                                 >
                                     <option value="">부서 선택</option>
-                                    <option value="1팀">1팀</option>
-                                    <option value="2팀">2팀</option>
-                                    <option value="3팀">3팀</option>
-                                    <option value="4팀">4팀</option>
+                                    {positions.map((data, index) => (
+                                        <option key={index}>{data.dptName}</option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
                         <div className="registerRow">
                             <div>직급</div>
                             <div>
-                                <select name="rnkNo" id="grade" value={stf.rnkNo} onChange={changeHandler}>
+                                <select name="strRnkNo" id="grade" value={stf.strRnkNo} onChange={changeHandler}>
                                     <option value="">직급 선택</option>
-                                    <option value="사원">사원</option>
-                                    <option value="대리">대리</option>
-                                    <option value="팀장">팀장</option>
-                                    <option value="과장">과장</option>
+                                    {deps.map((data, index) => (
+                                        <option key={index}>{data.rnkName}</option>
+                                    ))}
                                 </select>
                             </div>
                         </div>
@@ -234,11 +352,28 @@ const RegisterPage = () => {
                                     onChange={onChangeEmail}
                                     required
                                 />
-                                <button>인증</button>
+                                <button onClick={handleSendEmail}>인증</button>
                             </div>
-                            
+
                             <span>{emailMessage}</span>
+                        
+                        {showVerification && (
+                            <div className="registerRow">
+                                <div>인증 코드</div>
+                                <div>
+                                    <input
+                                        type="text"
+                                        name="verificationCode"
+                                        value={verificationCode}
+                                        onChange={(e) => setVerificationCode(e.target.value)}
+                                    />
+                                    <button onClick={handleVerifyCode}>확인</button>
+                                    <span>{verificationMessage}</span>
+                                </div>
+                            </div>
+                        )}
                         </div>
+                    
 
                         <div className="registerRow">
                             <div>휴대폰</div>
@@ -251,9 +386,9 @@ const RegisterPage = () => {
                                     required
                                 />
                             </div>
-                            
+
                             <span>{phoneMessage}</span>
-                        
+
                         </div>
                     </div>
 
