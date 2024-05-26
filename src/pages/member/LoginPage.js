@@ -1,8 +1,66 @@
-import React from 'react'
+import React, { useState } from "react";
 import MemberLayout from '../../layout/MemberLayout';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+
+
+import { useDispatch } from "react-redux";
+import axios from "axios";
+import { login } from "../../slice/LoginSlice"; 
+
+
+const initState = {
+    uid: "",
+    pass: "",
+  };
 
 const LoginPage = () => {
+
+
+    const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const [loginParam, setLoginParam] = useState({ ...initState });
+  
+    const changeHandler = (e) => {
+        console.log("여기 일단 들어와?");
+      //loginParam[e.target.name] = e.target.value;
+      setLoginParam({ ...loginParam, [e.target.name]: e.target.value });
+    };
+  
+    const submitHandler = (e) => {
+      e.preventDefault();
+  
+      // 반드시 FormData로 생성해서 username, password로 선언해야 spring security 인증처리 됨
+      //const formData = new FormData();
+      //formData.append("username", loginParam.uid);
+      //formData.append("password", loginParam.pass);
+      /*
+      const formData = {
+        username: loginParam.uid,
+        password: loginParam.pass,
+      };
+      */
+  
+      axios
+        .post("http://localhost:8080/login", loginParam)
+        .then((response) => {
+          console.log("here1 : " + JSON.stringify(response.data));
+  
+          // redux 액션 실행
+          dispatch(login(response.data));
+  
+          // 메인 이동
+          navigate("/");
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    };
+
+
+
+
+
+
   return (
     <MemberLayout>
     <section id="loginArea">
@@ -20,14 +78,14 @@ const LoginPage = () => {
                 </Link>
             </div>
 
-            <form action="#">
-                <input type="text"/>
-                <input type="password"/>
-                <label for="">
+            <form onSubmit={submitHandler}>
+                <input type="text" name = "stfNo" placeholder='아이디입력' value={loginParam.uid} onChange={changeHandler} />
+                <input type="password" name="stfPass" placeholder='비밀번호입력' value={loginParam.pass} onChange={changeHandler}/>
+                <label htmlFor="myInput">
                     <input type="checkbox"/> 아이디 저장
                 </label>
 
-                <input type="submit" value="로그인"/>
+                <input type="submit" value="로그인" className='btnLogin'/>
             </form>
 
             <div className="loginEtc">

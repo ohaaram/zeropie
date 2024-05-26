@@ -46,12 +46,32 @@ const RegisterPage = () => {
         thumbFile: null,
     });
 
-
+    const [loading, setLoading] = useState(true);
     const [positions, setPositions] = useState([]);
     const [deps, setDeps] = useState([]);
     const [showVerification, setShowVerification] = useState(false); // 인증 코드 입력 필드 표시 여부
     const [verificationCode, setVerificationCode] = useState(""); // 인증 코드 입력 값
     const [verificationMessage, setVerificationMessage] = useState(""); // 인증 결과 메시지
+    const [isFormValid, setIsFormValid] = useState(false); // 폼 유효성 상태
+
+    //유효성 결과 보여주기
+    const [passwordMessage, setPasswordMessage] = useState("");
+    const [emailMessage, setEmailMessage] = useState("");
+    const [phoneMessage, setPhoneMessage] = useState("");
+
+
+
+    useEffect(() => {
+        // 모든 필드가 채워졌는지 확인
+        const isAllFieldsFilled = Object.values(stf).every((value) => value !== "");
+        const isPasswordValid = passwordMessage === "안전한 비밀번호 입니다.";
+        const isEmailValid = emailMessage === "성공";
+        const isPhoneValid = phoneMessage === "사용 가능한 번호입니다:-)";
+        const isEmailCodeValid = verificationMessage =="성공";
+        const isPasswordMatch = stf.stfPass === stf.stfPass2;
+        const isFileUploaded = stf.thumbFile !== null;
+        setIsFormValid(isAllFieldsFilled && isPasswordValid && isEmailValid && isPhoneValid && isPasswordMatch && isFileUploaded&&isEmailCodeValid);
+    }, [stf, passwordMessage, emailMessage, phoneMessage]);
 
 
     // 컴포넌트가 렌더링될 때(마운트)
@@ -79,8 +99,7 @@ const RegisterPage = () => {
                 console.log(err);
             });
 
-
-
+        
     }, []);
 
 
@@ -94,10 +113,6 @@ const RegisterPage = () => {
     const openDaumPostcode = useDaumPostcodePopup();
 
 
-    //유효성 결과 보여주기
-    const [passwordMessage, setPasswordMessage] = useState("");
-    const [emailMessage, setEmailMessage] = useState("");
-    const [phoneMessage, setPhoneMessage] = useState("");
 
 
     //우편주소
@@ -129,7 +144,10 @@ const RegisterPage = () => {
                 setEmailMessage(result); // 서버에서 받은 결과를 상태로 관리
 
                 if (result === '성공') { // 인증 코드 입력 필드 표시
+                    alert('이메일을 성공적으로 보냈습니다');
                     setShowVerification(true);
+                }else{
+                    alert("이미 가입되어 있는 이메일 주소입니다");
                 }
             })
             .catch((err) => {
@@ -137,16 +155,24 @@ const RegisterPage = () => {
             });
     };
     const handleVerifyCode = (e) => {
+
         e.preventDefault();
-        axios.get(`http://localhost:8080/onepie/verifyCode?email=${stf.stfEmail}&code=${verificationCode}`)
-            .then((response) => {
-                const result = response.data.result;
-                setVerificationMessage(result); // 서버에서 받은 인증 결과를 상태로 관리
-            })
-            .catch((err) => {
-                console.log(err);
-            });
-    };
+        axios.get(`http://localhost:8080/onepie/verifyCode`, {
+          params: {
+            email: stf.stfEmail,
+            code: verificationCode
+          },
+          withCredentials: true // 세션 쿠키 포함(사용안함:세션사용안함)
+        })
+          .then((response) => {
+            const result = response.data.result;
+            setVerificationMessage(result); // 서버에서 받은 인증 결과를 상태로 관리
+          })
+          .catch((err) => {
+            console.log(err);
+          });
+      };
+
 
 
 
@@ -154,6 +180,7 @@ const RegisterPage = () => {
     //회원가입버튼을 누르면 post전송
     const submitHandler = (e) => {
         e.preventDefault();
+        alert("인증버튼을 클릭");
 
         const formData = new FormData();
         // 기존 stf 필드들 추가
@@ -174,7 +201,7 @@ const RegisterPage = () => {
             })
             .then((response) => {
                 console.log(response.data);
-                //navigate("/login");
+                navigate("/login");
             })
             .catch((err) => {
                 console.log(err);
@@ -308,6 +335,7 @@ const RegisterPage = () => {
                                 />
                             </div>
                             {stf.stfPass !== stf.stfPass2 && <span>비밀번호가 일치하지 않습니다.</span>}
+                            {stf.stfPass == stf.stfPass2 && <span>비밀번호가 일치합니다.</span>}
                         </div>
                     </div>
 
@@ -356,24 +384,24 @@ const RegisterPage = () => {
                             </div>
 
                             <span>{emailMessage}</span>
-                        
-                        {showVerification && (
-                            <div className="registerRow">
-                                <div>인증 코드</div>
-                                <div>
-                                    <input
-                                        type="text"
-                                        name="verificationCode"
-                                        value={verificationCode}
-                                        onChange={(e) => setVerificationCode(e.target.value)}
-                                    />
-                                    <button onClick={handleVerifyCode}>확인</button>
-                                    <span>{verificationMessage}</span>
+
+                            {showVerification && (
+                                <div className="registerRow">
+                                    <div>인증 코드</div>
+                                    <div>
+                                        <input
+                                            type="text"
+                                            name="verificationCode"
+                                            value={verificationCode}
+                                            onChange={(e) => setVerificationCode(e.target.value)}
+                                        />
+                                        <button onClick={handleVerifyCode}>확인</button>
+                                        <span>{verificationMessage}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
                         </div>
-                    
+
 
                         <div className="registerRow">
                             <div>휴대폰</div>
@@ -424,7 +452,7 @@ const RegisterPage = () => {
                         </div>
                     </div>
 
-                    <input type="submit" value="회원가입" />
+                    <input type="submit" value="회원가입" disabled={!isFormValid} />
                 </form>
 
                 <div className="loginBox">
