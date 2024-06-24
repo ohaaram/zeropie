@@ -1,23 +1,30 @@
-import React from 'react'
-import SideBoxComponent from './SideBoxComponent'
+import React from 'react';
+import SideBoxComponent from './SideBoxComponent';
 import { Link } from 'react-router-dom';
+import { ArticleListProvider } from './SideListProvider';
+import { useSelector } from 'react-redux';
 
 const SideBarComponent = () => {
-  return (
-    <section id="sideBar">
-      <Link to="/main" class="boxTitle">
-          <img src="../images/zeroPieLogo.png" alt=""/>
-          <div>
-              <p>1조 게시판</p>
-          </div>
-      </Link>
+    const loginSlice = useSelector((state) => state.loginSlice) || {};
+    const role = loginSlice.userRole;
 
-      <SideBoxComponent></SideBoxComponent>
-      <SideBoxComponent></SideBoxComponent>
-      <SideBoxComponent></SideBoxComponent>
-      
-  </section>
-  )
-}
+    return (
+        <ArticleListProvider>
+            <section id="sideBar">
+                <Link to="/" className="boxTitle">
+                    <img src="../images/zeroPie2.png" alt="" />
+                    <div>
+                        <p>ZeroPie</p>
+                    </div>
+                </Link>
+
+                <SideBoxComponent sideBarCate={'private'}></SideBoxComponent>
+                <SideBoxComponent sideBarCate={'article'}></SideBoxComponent>
+                {(role === 'MANAGER' || role === 'ADMIN') && <SideBoxComponent sideBarCate={'admin'} />}
+                <SideBoxComponent sideBarCate={'cs'}></SideBoxComponent>
+            </section>
+        </ArticleListProvider>
+    );
+};
 
 export default SideBarComponent;
